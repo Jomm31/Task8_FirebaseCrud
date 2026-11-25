@@ -1,6 +1,11 @@
+import 'dart:io';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_crud/auth_service.dart';
 import 'package:firebase_crud/crud_service.dart';
+import 'package:firebase_crud/login_page.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -30,12 +35,23 @@ class _HomePageState extends State<HomePage> {
                 showFavoritesOnly = !showFavoritesOnly;
               });
             },
+            // Icon changes based on filter state
             icon: Icon(
               showFavoritesOnly ? Icons.favorite : Icons.favorite_border,
               color: Colors.white,
             ),
             tooltip: 'Filter Favorites',
           ),
+          IconButton(
+              icon: Icon(Icons.logout),
+              onPressed: () {
+              AuthService().signOut();
+              Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => LoginPage()),
+            );
+          },
+         ),
         ],
       ),
       floatingActionButton: FloatingActionButton(
@@ -46,19 +62,6 @@ class _HomePageState extends State<HomePage> {
       body: StreamBuilder<QuerySnapshot>(
         stream: service.getItems(),
         builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Text(
-                  'Error: ${snapshot.error}',
-                  style: const TextStyle(color: Colors.red, fontSize: 16),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            );
-          }
-
           if (!snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
           }
@@ -66,6 +69,7 @@ class _HomePageState extends State<HomePage> {
 
           if (showFavoritesOnly) {
             docs = docs.where((doc) {
+              // Safely access data to avoid errors on old items
               final data = doc.data() as Map<String, dynamic>;
               return data.containsKey('is_favorite') &&
                   data['is_favorite'] == true;
@@ -84,17 +88,14 @@ class _HomePageState extends State<HomePage> {
           return ListView.builder(
             itemBuilder: (context, index) {
               var item = docs[index];
-              var data = item.data() as Map<String, dynamic>;
-              bool isFavorite = data.containsKey('is_favorite')
-                  ? data['is_favorite']
-                  : false;
-              String name = data['name']?.toString() ?? '';
-              String quantity = data['quantity']?.toString() ?? '0';
+
+              final data = item.data() as Map<String, dynamic>;
+              final imageUrl = data ['image_url'];    
 
               return Card(
                 elevation: 3,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadiusGeometry.circular(12),
                 ),
                 margin: const EdgeInsets.symmetric(vertical: 6),
                 child: ListTile(
@@ -102,28 +103,47 @@ class _HomePageState extends State<HomePage> {
                     horizontal: 16,
                     vertical: 8,
                   ),
+
+                  leading: imageUrl != null
+                  ? ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.network(
+                      imageUrl,
+                      width: 60,
+                      height: 60,
+                      cacheWidth: 180,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) =>
+                          const SizedBox(
+                        width: 60,
+                        height: 60,
+                        child: Icon(Icons.broken_image),
+                      ),
+                    ), // Image.network
+                  ) // ClipRRect
+                  : null,
                   title: Text(
-                    name,
+                    data['name'] ?? '',
                     style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   subtitle: Text(
-                    'Quantity $quantity',
+                    'Quantity ${data['quantity'] ?? 0}',
                     style: const TextStyle(fontSize: 14, color: Colors.grey),
                   ),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      IconButton(
-                        onPressed: () =>
-                            service.toggleFavorite(item.id, isFavorite),
-                        icon: Icon(
-                          isFavorite ? Icons.favorite : Icons.favorite_border,
-                          color: isFavorite ? Colors.red : Colors.grey,
-                        ),
-                      ),
+                      // IconButton(
+                      //   onPressed: () =>
+                      //       service.toggleFavorite(item.id, isFavorite),
+                      //   icon: Icon(
+                      //     isFavorite ? Icons.favorite : Icons.favorite_border,
+                      //     color: isFavorite ? Colors.red : Colors.grey,
+                      //   ),
+                      // ),
                       IconButton(
                         onPressed: () => openEditDialog(context, item),
                         icon: Icon(Icons.edit, color: Colors.orange),
@@ -159,6 +179,10 @@ class _HomePageState extends State<HomePage> {
             },
             child: const Text('Delete', style: TextStyle(color: Colors.red)),
           ),
+          TextButton(
+            child: const Text('Cancel'),
+            onPressed: () => Navigator.pop(context),
+          ),
         ],
       ),
     );
@@ -168,9 +192,15 @@ class _HomePageState extends State<HomePage> {
     _nameController.clear();
     _quantityController.clear();
 
+    File? selectedImageFile;
+    String? selectedImageUrl;
+
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (_) => StatefulBuilder(
+        builder: (ontext, setState) =>
+        AlertDialog(
+
         title: const Text('Add Item'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -193,7 +223,33 @@ class _HomePageState extends State<HomePage> {
                   borderRadius: BorderRadius.circular(8),
                 ),
               ),
+              keyboardType: TextInputType.number,
             ),
+            const SizedBox(height: 10),
+            if (selectedImageFile != null)
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Image.file(
+                selectedImageFile!,
+                width: 120,
+                height: 120,
+                fit: BoxFit.cover,
+              ),
+            ),
+            const SizedBox(height: 8),
+            ElevatedButton.icon(
+              icon: const Icon(Icons.upload_file),
+              label: const Text('upload Image'),
+              onPressed: () async {
+                final pickedFile = await service.pickImageForAddItem();
+                if(pickedFile != null) {
+                setState((){
+                selectedImageFile = pickedFile.file;
+                selectedImageUrl = pickedFile.url;
+                });
+              }
+            }
+          )
           ],
         ),
         actions: [
@@ -202,34 +258,34 @@ class _HomePageState extends State<HomePage> {
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () {
-              if (_nameController.text.isNotEmpty &&
-                  _quantityController.text.isNotEmpty) {
-                final quantity = int.tryParse(_quantityController.text) ?? 0;
-                service.addItem(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.teal,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadiusGeometry.circular(8),
+              ),
+            ),
+            child: const Text('Save'),
+            onPressed: () async {
+              if(_nameController.text.isNotEmpty && _quantityController.text. isNotEmpty) {
+                await service.addItemwithImage(
                   _nameController.text,
-                  quantity,
+                int.parse(_quantityController.text),
+                selectedImageUrl,
                 );
                 Navigator.pop(context);
               }
             },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.teal,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            child: const Text('Save'),
           ),
         ],
+      ),
       ),
     );
   }
 
   void openEditDialog(BuildContext context, DocumentSnapshot item) {
     final data = item.data() as Map<String, dynamic>;
-    _nameController.text = data['name']?.toString() ?? '';
-    _quantityController.text = data['quantity']?.toString() ?? '';
+    _nameController.text = data['name'];
+    _quantityController.text = data['quantity'].toString();
 
     showDialog(
       context: context,
@@ -266,13 +322,12 @@ class _HomePageState extends State<HomePage> {
           ),
           ElevatedButton(
             onPressed: () {
-              if (_nameController.text.isNotEmpty &&
+              if (_nameController.text.isNotEmpty &
                   _quantityController.text.isNotEmpty) {
-                final quantity = int.tryParse(_quantityController.text) ?? 0;
                 service.updateItem(
                   item.id,
                   _nameController.text,
-                  quantity,
+                  int.parse(_quantityController.text),
                 );
                 Navigator.pop(context);
               }
@@ -280,7 +335,7 @@ class _HomePageState extends State<HomePage> {
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.orange,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadiusGeometry.circular(8),
               ),
             ),
             child: const Text('Edit'),

@@ -25,9 +25,15 @@ class DefaultFirebaseOptions {
       case TargetPlatform.iOS:
         return ios;
       case TargetPlatform.macOS:
-        return macos;
+        throw UnsupportedError(
+          'DefaultFirebaseOptions have not been configured for macos - '
+          'you can reconfigure this by running the FlutterFire CLI again.',
+        );
       case TargetPlatform.windows:
-        return windows;
+        throw UnsupportedError(
+          'DefaultFirebaseOptions have not been configured for windows - '
+          'you can reconfigure this by running the FlutterFire CLI again.',
+        );
       case TargetPlatform.linux:
         throw UnsupportedError(
           'DefaultFirebaseOptions have not been configured for linux - '
@@ -57,6 +63,7 @@ class DefaultFirebaseOptions {
     projectId: 'notes-cbb4b',
     storageBucket: 'notes-cbb4b.firebasestorage.app',
   );
+
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyBUre3Q284Zs50JPDeKKDsyM05d1gGPPvw',
     appId: '1:268905897724:ios:e06b31f3e42bec9b41c179',
@@ -64,23 +71,5 @@ class DefaultFirebaseOptions {
     projectId: 'notes-cbb4b',
     storageBucket: 'notes-cbb4b.firebasestorage.app',
     iosBundleId: 'com.example.firebaseCrud',
-  );
-  static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyBUre3Q284Zs50JPDeKKDsyM05d1gGPPvw',
-    appId: '1:268905897724:ios:e06b31f3e42bec9b41c179',
-    messagingSenderId: '268905897724',
-    projectId: 'notes-cbb4b',
-    storageBucket: 'notes-cbb4b.firebasestorage.app',
-    iosBundleId: 'com.example.firebaseCrud',
-  );
-
-  static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyClTqzXAHsSGti3-chOTn-5z1Hjjk6Xi-4',
-    appId: '1:268905897724:web:9b941e6f6a878c5a41c179',
-    messagingSenderId: '268905897724',
-    projectId: 'notes-cbb4b',
-    authDomain: 'notes-cbb4b.firebaseapp.com',
-    storageBucket: 'notes-cbb4b.firebasestorage.app',
-    measurementId: 'G-1FPKX5BFRF',
   );
 }
